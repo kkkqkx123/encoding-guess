@@ -1,0 +1,13 @@
+[package]
+name = "encoding-guess"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Character encoding detection for source code and text files"
+license = "Apache-2.0"
+repository = "https://github.com/kkkqkx123/encoding-guess"
+
+[dependencies]
+encoding_rs = { workspace = true }
+
+[dev-dependencies]
