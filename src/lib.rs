@@ -9,6 +9,12 @@ mod detector;
 mod registry;
 mod stages;
 
+// Optional statistical bigram model for CJK disambiguation. Only compiled when
+// the `bigram` feature is enabled (default off — keeps the crate dependency-
+// light and free of external model files).
+#[cfg(feature = "bigram")]
+mod bigram;
+
 pub use detector::Guess;
 pub use registry::{EncodingInfo, REGISTRY};
 

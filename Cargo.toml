@@ -1,13 +1,24 @@
 [package]
 name = "encoding-guess"
 version = "0.1.0"
-edition.workspace = true
-rust-version.workspace = true
+edition = "2021"
+rust-version = "1.70"
 description = "Character encoding detection for source code and text files"
 license = "Apache-2.0"
 repository = "https://github.com/kkkqkx123/encoding-guess"
 
 [dependencies]
-encoding_rs = { workspace = true }
+encoding_rs = "0.8"
+
+[features]
+# Optional statistical bigram model used to distinguish between CJK encodings
+# (e.g. GBK vs Big5 vs Shift_JIS) that share overlapping byte-structure rules.
+#
+# Disabled by default: with the feature off the crate stays dependency-light
+# and ships **no external model files** (consistent with the project's
+# zero-model-file design goal in docs/known-limitations.md). When enabled, the
+# model is generated at first use from a small embedded corpus via `encoding_rs`
+# itself — still no external files are read at runtime.
+bigram = []
 
 [dev-dependencies]
