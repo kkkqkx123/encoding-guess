@@ -409,13 +409,7 @@ fn parse_charset_value(rest: &[u8]) -> Option<&'static str> {
             if b == b'"' || b == b'\'' {
                 break;
             }
-        } else if b == b' '
-            || b == b'\t'
-            || b == b'>'
-            || b == b';'
-            || b == b'\n'
-            || b == b'\r'
-        {
+        } else if b == b' ' || b == b'\t' || b == b'>' || b == b';' || b == b'\n' || b == b'\r' {
             break;
         }
         i += 1;

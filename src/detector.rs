@@ -14,13 +14,13 @@
 //! 10. CJK gating
 //! 11. Scoring and ranking (+ optional bigram statistical tiebreak)
 
-use crate::GuessResult;
 use crate::cjk;
 use crate::registry::{self, EncodingInfo};
 use crate::stages::{
     self, ASCII_CONFIDENCE, BOM_CONFIDENCE, DETERMINISTIC_CONFIDENCE, FALLBACK_CONFIDENCE,
     MARKUP_CONFIDENCE, UTF8_CONFIDENCE,
 };
+use crate::GuessResult;
 
 /// The encoding guesser.
 pub struct Guess;
@@ -462,7 +462,9 @@ mod tests {
         let guesser = Guess::new();
         // Alternating NUL / 0xFF: invalid UTF-8 (0xFF is not a valid lead),
         // ~50% NUL bytes -> flagged as binary and not valid utf8/ascii.
-        let data: Vec<u8> = (0..512).map(|i| if i % 2 == 0 { 0x00 } else { 0xFF }).collect();
+        let data: Vec<u8> = (0..512)
+            .map(|i| if i % 2 == 0 { 0x00 } else { 0xFF })
+            .collect();
         assert!(stages::is_binary(&data));
         let result = guesser.guess(&data);
         assert_eq!(result.encoding, "WINDOWS-1252");
