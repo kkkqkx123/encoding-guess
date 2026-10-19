@@ -77,13 +77,4 @@ pub fn registry() -> &'static [EncodingInfo] {
     })
 }
 
-/// Look up an encoding by canonical name (case-insensitive).
-///
-/// Part of the public API for external consumers; not yet used internally.
-#[allow(dead_code)]
-pub fn lookup(name: &str) -> Option<&'static EncodingInfo> {
-    let name_lower = name.to_ascii_lowercase();
-    registry()
-        .iter()
-        .find(|e| e.name.to_ascii_lowercase() == name_lower)
-}
+

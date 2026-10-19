@@ -409,11 +409,12 @@ mod tests {
     }
 
     #[test]
-    fn test_registry_lookup() {
-        assert!(registry::lookup("UTF-8").is_some());
-        assert!(registry::lookup("gbk").is_some());
-        assert!(registry::lookup("Big5").is_some());
-        assert!(registry::lookup("NONEXISTENT").is_none());
+    fn test_registry_contains_supported_encodings() {
+        let reg = registry::registry();
+        assert!(reg.iter().any(|e| e.name == "UTF-8"));
+        assert!(reg.iter().any(|e| e.name == "GBK"));
+        assert!(reg.iter().any(|e| e.name == "BIG5"));
+        assert!(!reg.iter().any(|e| e.name == "NONEXISTENT"));
     }
 
     #[test]
