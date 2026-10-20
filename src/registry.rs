@@ -76,5 +76,3 @@ pub fn registry() -> &'static [EncodingInfo] {
         ]
     })
 }
-
-
