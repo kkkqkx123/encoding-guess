@@ -431,7 +431,15 @@ pub fn gate_cjk<'a>(
         }
 
         if non_ascii >= DIVERSITY_MIN_NON_ASCII && analysis.lead_diversity < MIN_LEAD_DIVERSITY {
-            continue;
+            // A repeated lead byte is not a coincidence when every high byte
+            // forms a valid pair: real text repeats its punctuation, while
+            // unrelated single-byte data does not pair up throughout. The
+            // diversity rule separates random data from genuine multi-byte
+            // text, so a text that pairs up completely is beyond its reach.
+            let fully_paired = analysis.pair_ratio >= 1.0 && byte_coverage >= 1.0;
+            if !fully_paired {
+                continue;
+            }
         }
 
         survivors.push((enc, analysis));

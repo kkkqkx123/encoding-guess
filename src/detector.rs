@@ -155,8 +155,9 @@ impl Guess {
                 };
                 mb_scored.push((enc, boosted.min(1.0)));
             } else {
-                // Single-byte: score by printable-byte ratio among high bytes.
-                sb_scored.push((enc, Self::single_byte_score(data)));
+                // Single-byte: score by how much of the file still reads as
+                // text under this candidate.
+                sb_scored.push((enc, Self::single_byte_score(data, enc)));
             }
         }
 
@@ -176,7 +177,13 @@ impl Guess {
         if !sb_scored.is_empty() {
             sb_scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
             let (best_enc, best_score) = sb_scored[0];
-            return GuessResult::new(best_enc.name, best_score);
+            // A candidate that reads as noise is no evidence at all: the
+            // documented single-byte fallback is the honest answer, and it
+            // keeps the choice away from encodings that cannot represent
+            // the file as text.
+            if best_score > 0.0 {
+                return GuessResult::new(best_enc.name, best_score);
+            }
         }
 
         GuessResult::new("WINDOWS-1252", FALLBACK_CONFIDENCE)
@@ -243,33 +250,46 @@ impl Guess {
         scored[best].1 = max_struct + 0.01;
     }
 
-    /// Score single-byte encodings by measuring the ratio of printable
-    /// bytes among the high-byte range.
-    fn single_byte_score(data: &[u8]) -> f64 {
+    /// Score a single-byte candidate by how much of the file still reads as
+    /// text under it.
+    ///
+    /// The score must depend on the candidate: the same bytes are readable
+    /// text under one encoding and noise under another. A file of mostly
+    /// ASCII text that carries a few high bytes keeps its ASCII under a
+    /// single-byte encoding and loses it entirely under UTF-16, where every
+    /// ASCII pair collapses into one code unit. A score that ignored the
+    /// candidate would rate both alike and hand the file to the first
+    /// registered encoding, which is not the one that can read it.
+    fn single_byte_score(data: &[u8], enc: &EncodingInfo) -> f64 {
         let sample_len = data.len().min(8192);
         if sample_len == 0 {
             return 0.0;
         }
 
-        let mut printable = 0usize;
-        let mut high = 0usize;
-
-        for &b in data.iter().take(sample_len) {
-            if b >= 0x80 {
-                high += 1;
-                if (0xA0..=0xFF).contains(&b) {
-                    printable += 1;
-                }
-            } else if matches!(b, 0x09 | 0x0A | 0x0D | 0x20..=0x7E) {
-                printable += 1;
-            }
-        }
-
-        if high == 0 {
+        let sample = &data[..sample_len];
+        if !sample.iter().any(|b| *b >= 0x80) {
             return 0.0;
         }
 
-        let ratio = printable as f64 / sample_len as f64;
+        let (text, _, _) = enc.encoding_rs.decode(sample);
+
+        let mut total = 0usize;
+        let mut ascii = 0usize;
+        for ch in text.chars() {
+            if ch == '\u{FFFD}' {
+                continue;
+            }
+            total += 1;
+            if ch.is_ascii() {
+                ascii += 1;
+            }
+        }
+
+        if total == 0 {
+            return 0.0;
+        }
+
+        let ratio = ascii as f64 / total as f64;
         if ratio < 0.7 {
             return 0.0;
         }
@@ -406,6 +426,40 @@ mod tests {
         let result = guesser.guess(&data);
         assert_eq!(result.encoding, "UTF-16LE");
         assert_eq!(result.confidence, DETERMINISTIC_CONFIDENCE);
+    }
+
+    #[test]
+    fn test_repeated_gbk_punctuation_in_ascii_text() {
+        let guesser = Guess::new();
+        // Source text that repeats one punctuation mark (0xA1AE = em dash in
+        // GBK) throughout an otherwise ASCII comment. The repeated lead byte
+        // must not cost the file its multi-byte reading: every high byte
+        // forms a valid pair, so the text is genuine GBK.
+        let mut data = b"/*\n  The dash ".to_vec();
+        for _ in 0..12 {
+            data.extend_from_slice(&[0xA1, 0xAE]);
+            data.extend_from_slice(b" separates the parts\n");
+        }
+        data.extend_from_slice(b"*/\nint main(void) { return 0; }\n");
+        let result = guesser.guess(&data);
+        assert_eq!(result.encoding, "GBK");
+        assert!(result.confidence > 0.0);
+    }
+
+    #[test]
+    fn test_single_byte_fallback_reads_the_file() {
+        let guesser = Guess::new();
+        // Accented Latin text: the high bytes pair with no multi-byte
+        // encoding, so the answer must be the encoding that still reads the
+        // file. A wide encoding would turn every character pair into one
+        // code unit and leave nothing readable behind.
+        let mut data = Vec::new();
+        for _ in 0..20 {
+            data.extend_from_slice(b"caf\xe9 na\xefve\n");
+        }
+        let result = guesser.guess(&data);
+        assert_eq!(result.encoding, "WINDOWS-1252");
+        assert!(result.confidence > 0.0);
     }
 
     #[test]

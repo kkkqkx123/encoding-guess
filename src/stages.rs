@@ -232,11 +232,11 @@ pub fn detect_utf32_shape(data: &[u8]) -> Option<&'static str> {
     }
     let data_lane = data_lane?;
     // The other three lanes must be >= 90% NUL.
-    for i in 0..4 {
+    for (i, lane_nul) in lanes_nul.iter().enumerate() {
         if i == data_lane {
             continue;
         }
-        if lanes_nul[i] * 10 < chunks * 9 {
+        if lane_nul * 10 < chunks * 9 {
             return None;
         }
     }
@@ -292,10 +292,8 @@ pub fn detect_escape_encoding(data: &[u8]) -> Option<&'static str> {
 
     // UTF-7: 7-bit; whole input is ASCII and contains a +<base64>{-,non-b64} run
     // with at least one uppercase base64 char (guard against accidental "+foo").
-    if has_plus && data.iter().all(|&b| b <= 0x7F) {
-        if has_utf7_sequence(data) {
-            return Some("UTF-7");
-        }
+    if has_plus && data.iter().all(|&b| b <= 0x7F) && has_utf7_sequence(data) {
+        return Some("UTF-7");
     }
 
     None
@@ -361,7 +359,7 @@ fn has_utf7_sequence(data: &[u8]) -> bool {
 /// doctype/processing-instruction/comment/html tag), so ordinary code/text is
 /// never misrouted here. The returned name is a detect-only declaration.
 pub fn detect_markup_charset(data: &[u8]) -> Option<&'static str> {
-    let looks_like_markup = data.first().map_or(false, |&b| b == b'<')
+    let looks_like_markup = data.first().is_some_and(|&b| b == b'<')
         || contains_sub(data, b"<?xml")
         || contains_sub(data, b"<!DOCTYPE")
         || contains_sub(data, b"<!--")
